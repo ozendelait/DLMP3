@@ -18,7 +18,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  ***************************************************************************/
+const { SSL_OP_TLS_BLOCK_PADDING_BUG } = require('constants');
 const Discord = require('discord.js');
+const { repeat } = require('ffmpeg-static');
 const fs = require('fs');
 const bot = new Discord.Client();
 const config = require('./config.json');
@@ -35,7 +37,11 @@ const COMMANDS = Object.freeze({
     PLAYLIST: "playlist",
     JOIN: "join",
     LEAVE: "leave",
-    STOP: "stop"
+    STOP: "stop",
+    REPEAT: "repeat",
+    ISREPEAT: "isrepeat",
+    FILE: "file",
+    EXPORT: "export"
 });
 
 let playlist = null; // The file (sans extension) that contains the songs in the playlist
@@ -46,14 +52,23 @@ let fileData;
 let connection; // The connection (not a fan of how it's a global variable, but anonymous functions get tricky with scope)
 let songs = []; // The songs that wil be played
 let currentTrack = 0; // The index of the song list that is playing in the playlist / shuffle, etc. right now
-
+let doRepeat = false; // If this is true, the song will be repeated (not incremented)
 bot.login(config.token);
 
-function incrementSong() { // Increments the track number and returns the new current track for convenience
-    currentTrack = (currentTrack + 1) % songs.length;
+function incrementSong() {
+    // Increments the track number and returns the new current track for convenience
+    // Unless repeat is on
+    if (songs.length !== 0) {
+        currentTrack = doRepeat ? currentTrack : (currentTrack + 1) % songs.length;
+    } else {
+        currentTrack = 0; // If there are no elements, make it default to 0 so when omething starts playing it is at the start  (not sure if this will be a problem but it can't hurt ot be sure)
+    }
     return currentTrack;
 }
 
+function toggleRepeat() {
+    doRepeat = !doRepeat;
+}
 
 async function prepareSongs() {
     voiceChannel = bot.channels.cache.get(config.voiceChannel);
@@ -63,7 +78,7 @@ async function prepareSongs() {
     files = await voiceChannel.join().then(_connection => {
         connection = _connection;
         let readFailed = false; // Set to true if the read of the playlist fails
-        const playlistPath = "./" + playlist + ".json"
+        const playlistPath = "./playlists/" + playlist + ".json"
 
         if (playlist !== null && fs.existsSync(playlistPath)) {
             let rawInput = fs.readFileSync(playlistPath, "utf8");
@@ -85,13 +100,9 @@ async function prepareSongs() {
     return files; // Return the files to play
 }
 
-
-
-
 function playAudio() {
     let fileName = songs[currentTrack]; // Get the current file name
     dispatcher = connection.play('./music/' + fileName);
-
 
     dispatcher.on('start', () => {
         console.log('Now playing ' + fileName);
@@ -100,13 +111,13 @@ function playAudio() {
             if (err)
                 console.log(err);
         });
-        const statusEmbed = new Discord.MessageEmbed()
-            .addField('Now Playing', `${fileName}`)
-            .setColor('#0066ff')
+        // const statusEmbed = new Discord.MessageEmbed()
+        //     .addField('Now Playing', `${fileName}`)
+        //     .setColor('#0066ff')
 
         let statusChannel = bot.channels.cache.get(config.statusChannel);
         if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
-        statusChannel.send(statusEmbed);
+        // statusChannel.send(statusEmbed);
     });
 
     dispatcher.on('error', console.error);
@@ -132,14 +143,14 @@ bot.on('ready', () => {
         status: 'online',
     }).then(presence => console.log(`Activity set to "${presence.activities[0].name}"`)).catch(console.error);
 
-    const readyEmbed = new Discord.MessageEmbed()
-        .setAuthor(`${bot.user.username}`, bot.user.avatarURL())
-        .setDescription('Starting bot...')
-        .setColor('#0066ff')
+    // const readyEmbed = new Discord.MessageEmbed()
+    //     .setAuthor(`${bot.user.username}`, bot.user.avatarURL())
+    //     .setDescription('Starting bot...')
+    //     .setColor('#0066ff')
 
     let statusChannel = bot.channels.cache.get(config.statusChannel);
     if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
-    statusChannel.send(readyEmbed);
+    // statusChannel.send(readyEmbed);
     console.log('Connected to the voice channel.');
 });
 
@@ -157,7 +168,19 @@ bot.on('message', async msg => {
         const helpEmbed = new Discord.MessageEmbed()
             .setAuthor(`${bot.user.username} Help`, bot.user.avatarURL())
             .setDescription(`Currently playing \`${audio}\`.`)
-            .addField('Public Commands', `${config.prefix}help\n${config.prefix}ping\n${config.prefix}git\n${config.prefix}playing\n${config.prefix}about\n${config.prefix}resume\n${config.prefix}pause\n${config.prefix}skip\n`, true)
+            .addField('Public Commands',
+                ` ${config.prefix}help\n
+                  ${config.prefix}playing\n
+                  ${config.prefix}about\n
+                  ${config.prefix}resume\n
+                  ${config.prefix}pause\n
+                  ${config.prefix}skip\n
+                  ${config.prefix}repeat\n
+                  ${config.prefix}isrepeat\n
+                  ${config.prefix}file <song name without extension>\n
+                  ${config.prefix}shuffle\n
+                  ${config.prefix}playlist <playlist name without extension>\n
+                  ${config.prefix}export <file name without extension>\n`, true)
             .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}leave\n${config.prefix}stop\n`, true)
             .setFooter('© Copyright 2020 Andrew Lee. Licensed with GPL-3.0.')
             .setColor('#0066ff')
@@ -184,7 +207,7 @@ bot.on('message', async msg => {
     }
 
     if (command == COMMANDS.SKIP) {
-        msg.reply('Skipping `' + audio + '`...');
+        // msg.reply('Skipping `' + audio + '`...');
         dispatcher.pause();
         dispatcher = null;
         incrementSong();
@@ -196,6 +219,55 @@ bot.on('message', async msg => {
         songs = await prepareSongs();
         playAudio();
     }
+
+    if (command == COMMANDS.REPEAT) { // Toggle repeat on and off
+        toggleRepeat();
+    }
+
+    if (command == COMMANDS.ISREPEAT) { // show if repeat is toggled on
+        msg.reply(doRepeat);
+    }
+
+    if (command == COMMANDS.FILE) { // play a specific file
+
+        let allInputs = msg.content.split(' '); // Todo: refactor this out at the start when it's first split
+        let filePath = allInputs.slice(1, allInputs.length).join(' '); // Get everything but the command, putting the space back
+
+        if (dispatcher === undefined || connection === undefined) { // if dispatcher is undefined, connection should be too, but in case later change makes this not the case, include both checks
+            await prepareSongs(); // This initialises all the connections, so if it hasn't been called yet, call this now
+        } else {
+            dispatcher.pause();
+            dispatcher = null;
+        }
+        incrementSong();
+        songs.splice(currentTrack, 0, filePath + ".mp3")
+        playAudio();
+    }
+
+    if (command == COMMANDS.EXPORT) {
+        if (songs.length > 0) {
+            let allInputs = msg.content.split(' '); // Todo: refactor this out at the start when it's first split
+            let outputPath = allInputs.slice(1, allInputs.length).join(' '); // Get everything but the command, putting the space back
+            try {
+                fs.appendFileSync("./playlists/" + outputPath + ".json", "[\"" + songs.join("\", \"") + "\"]"); // Write the current playlist to file.  Synchronous doesn't super matter here because it is really fast.  I will swap to async if it is causing delay
+            } catch {
+                msg.reply("Error exporting!");
+            }
+            msg.reply("File exported as ./playlists/" + outputPath + ".json");
+        } else {
+            msg.reply("There are no songs currently playing!");
+        }
+    }
+
+    /* 
+    TODO: 
+
+        * Repeat for x times
+        * Repeat for x minutes
+        * Reduce / Increase volume via post request / command
+
+    */
+
 
     if (command.startsWith(COMMANDS.PLAYLIST)) { // Play from the playlist json
         let noCommand = msg.content.split(" ").slice(1, msg.content.length); // Remove the command from the input
