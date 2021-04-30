@@ -22,6 +22,23 @@ const Discord = require('discord.js');
 const fs = require('fs');
 const bot = new Discord.Client();
 const config = require('./config.json');
+
+// Create an enum so we don't mistype anything
+const COMMANDS = Object.freeze({
+    HELP: "help",
+    PLAYING: "playing",
+    ABOUT: "about",
+    RESUME: "resume",
+    PAUSE: "pause",
+    SKIP: "skip",
+    SHUFFLE: "shuffle",
+    PLAYLIST: "playlist",
+    JOIN: "join",
+    LEAVE: "leave",
+    STOP: "stop"
+});
+
+let playlist = null; // The file (sans extension) that contains the songs in the playlist
 let dispatcher;
 let audio;
 let voiceChannel;
@@ -34,8 +51,20 @@ function playAudio() {
     if (!voiceChannel) return console.error('The voice channel does not exist!\n(Have you looked at your configuration?)');
 
     voiceChannel.join().then(connection => {
-        let files = fs.readdirSync('./music');
+        let readFailed = false; // Set to true if the read of the playlist fails
+        let files; // Stores the array of files to read from
 
+        if (playlist && fs.existsSync(playlist)) {
+            files = fs.readFile("./" + playlist + ".json", "utf8", (error, jsonString) => {
+                if (error) {
+                    readFailed = true;
+                }
+            });
+
+        }
+        if (readFailed || !playlist || !fs.existsSync(playlist)) {
+            files = fs.readdirSync('./music');
+        }
         while (true) {
             audio = files[Math.floor(Math.random() * files.length)];
             console.log('Searching .mp3 file...');
@@ -46,6 +75,7 @@ function playAudio() {
         }
 
         dispatcher = connection.play('./music/' + audio);
+
 
         dispatcher.on('start', () => {
             console.log('Now playing ' + audio);
@@ -112,7 +142,7 @@ bot.on('message', async msg => {
 
     // Public allowed commands
 
-    if (command == 'help') {
+    if (command == COMMANDS.HELP) {
         if (!msg.guild.member(bot.user).hasPermission('EMBED_LINKS')) return msg.reply('**ERROR: This bot doesn\'t have the permission to send embed links please enable them to use the full help.**');
         const helpEmbed = new Discord.MessageEmbed()
             .setAuthor(`${bot.user.username} Help`, bot.user.avatarURL())
@@ -125,30 +155,43 @@ bot.on('message', async msg => {
         msg.channel.send(helpEmbed);
     }
 
-    if (command == 'playing') {
+    if (command == COMMANDS.PLAYING) {
         msg.channel.send('Currently playing `' + audio + '`.');
     }
 
-    if (command == 'about') {
+    if (command == COMMANDS.ABOUT) {
         msg.channel.send('The bot code was forked from Andrew Lee (Alee#4277). Written in Discord.JS and licensed with GPL-3.0.');
     }
 
-    if (command == 'resume') {
+    if (command == COMMANDS.RESUME) {
         msg.reply('Resuming music.');
         dispatcher.resume();
     }
 
-    if (command == 'pause') {
+    if (command == COMMANDS.PAUSE) {
         msg.reply('Pausing music.');
         dispatcher.pause();
     }
 
-    if (command == 'skip') {
+    if (command == COMMANDS.SKIP) {
         msg.reply('Skipping `' + audio + '`...');
         dispatcher.pause();
         dispatcher = null;
         playAudio();
     }
+
+    if (command == COMMANDS.SHUFFLE) { // Play from all the songs in ./music
+        playlist = null;
+        playAudio();
+    }
+
+    if (command.startsWith(COMMANDS.PLAYLIST)) { // Play from the playlist json
+        noCommand = msg.content.split(" ").slice(1, msg.content.length); // Remove the command from the input
+        playlist = noCommand.join(' '); // Get all of the message (other than the command), and put any spaces back in that were removed from the split
+        playAudio();
+    }
+
+
     if (![config.botOwner].includes(msg.author.id)) return;
 
     // Bot owner exclusive
