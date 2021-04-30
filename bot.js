@@ -22,6 +22,7 @@ const Discord = require('discord.js');
 const fs = require('fs');
 const bot = new Discord.Client();
 const config = require('./config.json');
+let playlist;
 let dispatcher;
 let audio;
 let voiceChannel;
@@ -39,6 +40,7 @@ function playAudio() {
         while (true) {
             audio = files[Math.floor(Math.random() * files.length)];
             console.log('Searching .mp3 file...');
+            console.log(files);
             if (audio.endsWith('.mp3')) {
                 break;
             }
@@ -99,7 +101,7 @@ bot.on('ready', () => {
     if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
     statusChannel.send(readyEmbed);
     console.log('Connected to the voice channel.');
-    playAudio();
+    // playAudio();
 });
 
 bot.on('message', async msg => {
@@ -116,8 +118,8 @@ bot.on('message', async msg => {
         const helpEmbed = new Discord.MessageEmbed()
             .setAuthor(`${bot.user.username} Help`, bot.user.avatarURL())
             .setDescription(`Currently playing \`${audio}\`.`)
-            .addField('Public Commands', `${config.prefix}help\n${config.prefix}ping\n${config.prefix}git\n${config.prefix}playing\n${config.prefix}about\n`, true)
-            .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}resume\n${config.prefix}pause\n${config.prefix}skip\n${config.prefix}leave\n${config.prefix}stop\n`, true)
+            .addField('Public Commands', `${config.prefix}help\n${config.prefix}ping\n${config.prefix}git\n${config.prefix}playing\n${config.prefix}about\n${config.prefix}resume\n${config.prefix}pause\n${config.prefix}skip\n${config.prefix}stop\n`, true)
+            .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}leave\n`, true)
             .setFooter('© Copyright 2020 Andrew Lee. Licensed with GPL-3.0.')
             .setColor('#0066ff')
 
