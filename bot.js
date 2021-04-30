@@ -43,16 +43,26 @@ let dispatcher;
 let audio;
 let voiceChannel;
 let fileData;
+let connection; // The connection (not a fan of how it's a global variable, but anonymous functions get tricky with scope)
+let songs = []; // The songs that wil be played
+let currentTrack = 0; // The index of the song list that is playing in the playlist / shuffle, etc. right now
 
 bot.login(config.token);
 
-function playAudio() {
+function incrementSong() { // Increments the track number and returns the new current track for convenience
+    currentTrack = (currentTrack + 1) % songs.length;
+    return currentTrack;
+}
+
+
+async function prepareSongs() {
     voiceChannel = bot.channels.cache.get(config.voiceChannel);
     if (!voiceChannel) return console.error('The voice channel does not exist!\n(Have you looked at your configuration?)');
+    let files = null; // Stores the array of files to read from
 
-    voiceChannel.join().then(connection => {
+    files = await voiceChannel.join().then(_connection => {
+        connection = _connection;
         let readFailed = false; // Set to true if the read of the playlist fails
-        let files = null; // Stores the array of files to read from
         const playlistPath = "./" + playlist + ".json"
 
         if (playlist !== null && fs.existsSync(playlistPath)) {
@@ -63,46 +73,48 @@ function playAudio() {
             files = fs.readdirSync('./music');
         }
         console.log(files);
-        while (true) {
-            audio = files[Math.floor(Math.random() * files.length)];
-            console.log('Searching .mp3 file...');
-            console.log(files);
+        files.sort((a, b) => Math.random() - 0.5); // 50-50 chance to be higher or lower (so it's a kind of shuffle, see https://dev.to/codebubb/how-to-shuffle-an-array-in-javascript-2ikj)
 
-            if (audio.endsWith('.mp3')) {
-                break;
-            }
-        }
-
-        dispatcher = connection.play('./music/' + audio);
-
-
-        dispatcher.on('start', () => {
-            console.log('Now playing ' + audio);
-            fileData = "Now Playing: " + audio;
-            fs.writeFile("now-playing.txt", fileData, (err) => {
-                if (err)
-                    console.log(err);
-            });
-            const statusEmbed = new Discord.MessageEmbed()
-                .addField('Now Playing', `${audio}`)
-                .setColor('#0066ff')
-
-            let statusChannel = bot.channels.cache.get(config.statusChannel);
-            if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
-            statusChannel.send(statusEmbed);
-        });
-
-        dispatcher.on('error', console.error);
-
-        dispatcher.on('finish', () => {
-            console.log('Music has finished playing.');
-            playAudio();
-        });
+        files.filter(element => element.endsWith(".mp3")); // Remove everything that isn't an mp3
+        return files;
 
     }).catch(e => {
         console.error(e);
     });
 
+    return files; // Return the files to play
+}
+
+
+
+
+function playAudio() {
+    let fileName = songs[currentTrack]; // Get the current file name
+    dispatcher = connection.play('./music/' + fileName);
+
+
+    dispatcher.on('start', () => {
+        console.log('Now playing ' + fileName);
+        fileData = "Now Playing: " + fileName;
+        fs.writeFile("now-playing.txt", fileData, (err) => {
+            if (err)
+                console.log(err);
+        });
+        const statusEmbed = new Discord.MessageEmbed()
+            .addField('Now Playing', `${fileName}`)
+            .setColor('#0066ff')
+
+        let statusChannel = bot.channels.cache.get(config.statusChannel);
+        if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
+        statusChannel.send(statusEmbed);
+    });
+
+    dispatcher.on('error', console.error);
+
+    dispatcher.on('finish', () => {
+        console.log('Music has finished playing.');
+        playAudio(songs, incrementSong()); // Cycle through the shuffled list over and over
+    });
 }
 
 bot.on('ready', () => {
@@ -129,7 +141,6 @@ bot.on('ready', () => {
     if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
     statusChannel.send(readyEmbed);
     console.log('Connected to the voice channel.');
-    // playAudio();
 });
 
 bot.on('message', async msg => {
@@ -176,17 +187,20 @@ bot.on('message', async msg => {
         msg.reply('Skipping `' + audio + '`...');
         dispatcher.pause();
         dispatcher = null;
+        incrementSong();
         playAudio();
     }
 
     if (command == COMMANDS.SHUFFLE) { // Play from all the songs in ./music
         playlist = null;
+        songs = await prepareSongs();
         playAudio();
     }
 
     if (command.startsWith(COMMANDS.PLAYLIST)) { // Play from the playlist json
-        noCommand = msg.content.split(" ").slice(1, msg.content.length); // Remove the command from the input
+        let noCommand = msg.content.split(" ").slice(1, msg.content.length); // Remove the command from the input
         playlist = noCommand.join(' '); // Get all of the message (other than the command), and put any spaces back in that were removed from the split
+        songs = await prepareSongs();
         playAudio();
     }
 
@@ -198,7 +212,6 @@ bot.on('message', async msg => {
     if (command == COMMANDS.JOIN) {
         msg.reply('Joining voice channel.');
         console.log('Connected to the voice channel.');
-        playAudio();
     }
 
     if (command == COMMANDS.LEAVE) {
