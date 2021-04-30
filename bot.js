@@ -52,23 +52,22 @@ function playAudio() {
 
     voiceChannel.join().then(connection => {
         let readFailed = false; // Set to true if the read of the playlist fails
-        let files; // Stores the array of files to read from
+        let files = null; // Stores the array of files to read from
+        const playlistPath = "./" + playlist + ".json"
 
-        if (playlist && fs.existsSync(playlist)) {
-            files = fs.readFile("./" + playlist + ".json", "utf8", (error, jsonString) => {
-                if (error) {
-                    readFailed = true;
-                }
-            });
-
+        if (playlist !== null && fs.existsSync(playlistPath)) {
+            let rawInput = fs.readFileSync(playlistPath, "utf8");
+            files = JSON.parse(rawInput);
         }
-        if (readFailed || !playlist || !fs.existsSync(playlist)) {
+        if (readFailed || playlist == null || !fs.existsSync(playlistPath)) {
             files = fs.readdirSync('./music');
         }
+        console.log(files);
         while (true) {
             audio = files[Math.floor(Math.random() * files.length)];
             console.log('Searching .mp3 file...');
             console.log(files);
+
             if (audio.endsWith('.mp3')) {
                 break;
             }
@@ -147,8 +146,8 @@ bot.on('message', async msg => {
         const helpEmbed = new Discord.MessageEmbed()
             .setAuthor(`${bot.user.username} Help`, bot.user.avatarURL())
             .setDescription(`Currently playing \`${audio}\`.`)
-            .addField('Public Commands', `${config.prefix}help\n${config.prefix}ping\n${config.prefix}git\n${config.prefix}playing\n${config.prefix}about\n${config.prefix}resume\n${config.prefix}pause\n${config.prefix}skip\n${config.prefix}stop\n`, true)
-            .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}leave\n`, true)
+            .addField('Public Commands', `${config.prefix}help\n${config.prefix}ping\n${config.prefix}git\n${config.prefix}playing\n${config.prefix}about\n${config.prefix}resume\n${config.prefix}pause\n${config.prefix}skip\n`, true)
+            .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}leave\n${config.prefix}stop\n`, true)
             .setFooter('© Copyright 2020 Andrew Lee. Licensed with GPL-3.0.')
             .setColor('#0066ff')
 
@@ -196,13 +195,13 @@ bot.on('message', async msg => {
 
     // Bot owner exclusive
 
-    if (command == 'join') {
+    if (command == COMMANDS.JOIN) {
         msg.reply('Joining voice channel.');
         console.log('Connected to the voice channel.');
         playAudio();
     }
 
-    if (command == 'leave') {
+    if (command == COMMANDS.LEAVE) {
         voiceChannel = bot.channels.cache.get(config.voiceChannel);
         if (!voiceChannel) return console.error('The voice channel does not exist!\n(Have you looked at your configuration?)');
         msg.reply('Leaving voice channel.');
@@ -217,7 +216,7 @@ bot.on('message', async msg => {
         voiceChannel.leave();
     }
 
-    if (command == 'stop') {
+    if (command == COMMANDS.STOP) {
         await msg.reply('Powering off...');
         fileData = "Now Playing: Nothing";
         await fs.writeFile("now-playing.txt", fileData, (err) => {
