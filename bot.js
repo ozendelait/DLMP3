@@ -169,18 +169,19 @@ bot.on('message', async msg => {
             .setAuthor(`${bot.user.username} Help`, bot.user.avatarURL())
             .setDescription(`Currently playing \`${audio}\`.`)
             .addField('Public Commands',
-                ` ${config.prefix}help\n
+                ` ${config.prefix}help | Displays this menu\n
                   ${config.prefix}playing\n
                   ${config.prefix}about\n
                   ${config.prefix}resume\n
                   ${config.prefix}pause\n
                   ${config.prefix}skip\n
-                  ${config.prefix}repeat\n
-                  ${config.prefix}isrepeat\n
-                  ${config.prefix}file <song name without extension>\n
-                  ${config.prefix}shuffle\n
-                  ${config.prefix}playlist <playlist name without extension>\n
-                  ${config.prefix}export <file name without extension>\n`, true)
+                  ${config.prefix}repeat | Toggles if the player is repeating\n
+                  ${config.prefix}isrepeat | True if repeat is on\n
+                  ${config.prefix}file <song name without extension> | plays this song in the music folder\n
+                  ${config.prefix}shuffle | shuffles all songs in the music folder\n
+                  ${config.prefix}playlist <playlist name without extension> | plays the playlist given\n
+                  ${config.prefix}export <file name without extension> | uses the current queue to create / update the given playlist\n
+                  ${config.prefix}clear | Empties the song queue\n`, true)
             .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}leave\n${config.prefix}stop\n`, true)
             .setFooter('© Copyright 2020 Andrew Lee. Licensed with GPL-3.0.')
             .setColor('#0066ff')
@@ -189,7 +190,7 @@ bot.on('message', async msg => {
     }
 
     if (command == COMMANDS.PLAYING) {
-        msg.channel.send('Currently playing `' + audio + '`.');
+        msg.channel.send('Currently playing song `' + currentTrack + " from " + songs + '`.');
     }
 
     if (command == COMMANDS.ABOUT) {
@@ -259,6 +260,21 @@ bot.on('message', async msg => {
         }
     }
 
+    if (command == "clear") { // Todo refactor
+        songs = [];
+        currentTrack = 0;
+        dispatcher.pause();
+        dispatcher = null;
+
+    }
+
+    if (command == "queue") {
+        let allInputs = msg.content.split(' '); // Todo: refactor this out at the start when it's first split
+        let inputPath = allInputs.slice(1, allInputs.length).join(' '); // Get everything but the command, putting the space back
+        songs.splice(currentTrack, 0, inputPath + ".mp3");
+    }
+
+
     /* 
     TODO: 
 
@@ -273,6 +289,7 @@ bot.on('message', async msg => {
         let noCommand = msg.content.split(" ").slice(1, msg.content.length); // Remove the command from the input
         playlist = noCommand.join(' '); // Get all of the message (other than the command), and put any spaces back in that were removed from the split
         songs = await prepareSongs();
+        console.log(songs);
         playAudio();
     }
 
