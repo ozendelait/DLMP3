@@ -1,5 +1,6 @@
-DLMP3 Bot forked from https://github.com/GitAccountThatIMade/DLMP3 (which is forked from https://github.com/Alee14/DLMP3 )
-# DLMP3 Bot (Discord.JS Local MP3)
+DLMP3 Bot forked from https://github.com/GitAccountThatIMade/DLMP3 (which is forked from https://github.com/Alee14/DLMP3 ) focusing on easy deployment without permanent changes on Windows 10 systems.
+
+# DLMP3 Bot (Discord.JS Local MP3) 
 
 Windows 10 Setup:
 1. call install_dlmp3.bat
