@@ -41,7 +41,8 @@ const COMMANDS = Object.freeze({
     REPEAT: "repeat",
     ISREPEAT: "isrepeat",
     FILE: "file",
-    EXPORT: "export"
+    EXPORT: "export",
+    LIST: "list"
 });
 
 let playlist = null; // The file (sans extension) that contains the songs in the playlist
@@ -101,8 +102,16 @@ async function prepareSongs() {
 }
 
 function playAudio() {
-    let fileName = songs[currentTrack]; // Get the current file name
-    dispatcher = connection.play('./music/' + fileName);
+    audio = songs[currentTrack];
+    let fileName = './music/' + audio; // Get the current file name
+    
+    if(!fs.existsSync(fileName)) {
+        songs.splice(currentTrack, 1);
+        console.log("Dropping invalid file "+fileName);
+        audio = " no song.";
+        return;
+    }
+    dispatcher = connection.play(fileName);
 
     dispatcher.on('start', () => {
         console.log('Now playing ' + fileName);
@@ -111,7 +120,8 @@ function playAudio() {
             if (err)
                 console.log(err);
         });
-        // const statusEmbed = new Discord.MessageEmbed()
+        audio = fileName;
+        //const statusEmbed = new Discord.MessageEmbed()
         //     .addField('Now Playing', `${fileName}`)
         //     .setColor('#0066ff')
 
@@ -170,6 +180,7 @@ bot.on('message', async msg => {
             .setDescription(`Currently playing \`${audio}\`.`)
             .addField('Public Commands',
                 ` ${config.prefix}help\n
+                  ${config.prefix}list\n
                   ${config.prefix}playing\n
                   ${config.prefix}about\n
                   ${config.prefix}resume\n
@@ -240,7 +251,9 @@ bot.on('message', async msg => {
             dispatcher = null;
         }
         incrementSong();
-        songs.splice(currentTrack, 0, filePath + ".mp3")
+        let mp3pos = filePath.indexOf(".mp3");
+        if (mp3pos < 0) {filePath = filePath + ".mp3";}
+        songs.splice(currentTrack, 0, filePath);
         playAudio();
     }
 
@@ -258,7 +271,11 @@ bot.on('message', async msg => {
             msg.reply("There are no songs currently playing!");
         }
     }
-
+    
+    if (command == COMMANDS.LIST) {
+        files = fs.readdirSync('./music');
+        msg.reply("Listing of all music&playlist files:\n`"+files.join("; ")+"\n`");
+    }
     /* 
     TODO: 
 
