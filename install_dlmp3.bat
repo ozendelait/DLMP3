@@ -40,11 +40,11 @@ IF NOT EXIST "%NVM_HOME%\v%NVM_VERS%\node.cmd" (
 
 echo Installing DLMP3 dependencies...
 ::nvm use %NVM_VERS% <- we skip this step as it would require admin rights; PATH has added hardcoded link to %NVM_VERS%
-npm install
+call npm install
 
 IF NOT EXIST config.json (
   copy config.json.init config.json
-  echo "Please manually adjust content of config.json."
+  echo Please manually adjust content of config.json.
 )
 
 popd
