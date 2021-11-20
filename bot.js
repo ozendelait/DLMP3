@@ -42,7 +42,8 @@ const COMMANDS = Object.freeze({
     ISREPEAT: "isrepeat",
     FILE: "file",
     EXPORT: "export",
-    LIST: "list"
+    LIST: "list",
+    CLEAR: "clear",
 });
 
 let playlist = null; // The file (sans extension) that contains the songs in the playlist
@@ -188,6 +189,7 @@ bot.on('message', async msg => {
                   ${config.prefix}playing\n
                   ${config.prefix}about\n
                   ${config.prefix}resume\n
+                  ${config.prefix}clear\n
                   ${config.prefix}pause\n
                   ${config.prefix}skip\n
                   ${config.prefix}repeat\n
@@ -221,6 +223,13 @@ bot.on('message', async msg => {
         dispatcher.pause();
     }
 
+    if (command == COMMANDS.CLEAR) {
+        msg.reply('Clearing playlist.');
+        dispatcher.pause();
+        dispatcher = null;
+        songs = [];
+    }
+
     if (command == COMMANDS.SKIP) {
         // msg.reply('Skipping `' + audio + '`...');
         dispatcher.pause();
@@ -244,7 +253,6 @@ bot.on('message', async msg => {
     }
 
     if (command == COMMANDS.FILE) { // play a specific file
-
         let allInputs = msg.content.split(' '); // Todo: refactor this out at the start when it's first split
         let filePath = allInputs.slice(1, allInputs.length).join(' '); // Get everything but the command, putting the space back
 
