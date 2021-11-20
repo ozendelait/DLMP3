@@ -103,6 +103,10 @@ async function prepareSongs() {
 
 function playAudio() {
     audio = songs[currentTrack];
+    if(audio.indexOf('..')>=0) {
+       console.log("Ignoring bad relative path "+fileName);
+       audio = '.InValId.mp3';
+    }
     let fileName = './music/' + audio; // Get the current file name
     
     if(!fs.existsSync(fileName)) {
