@@ -226,7 +226,6 @@ bot.on('message', async msg => {
     if (command == COMMANDS.CLEAR) {
         msg.reply('Clearing playlist.');
         dispatcher.pause();
-        dispatcher = null;
         songs = [];
     }
 
