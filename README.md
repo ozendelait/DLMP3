@@ -1,4 +1,4 @@
-DLMP3 Bot forked from https://github.com/GitAccountThatIMade/DLMP3 (which is forked from https://github.com/Alee14/DLMP3 ) focusing on easy deployment without permanent changes on Windows 10 systems.
+DLMP3 Bot forked from https://github.com/GitAccountThatIMade/DLMP3 (which is forked from https://github.com/Alee14/DLMP3 ) focusing on easy deployment without permanent changes on Windows 10 systems and updated to work with discord.js V14.
 
 # DLMP3 Bot (Discord.JS Local MP3) 
 
