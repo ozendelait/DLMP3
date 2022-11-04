@@ -48,7 +48,6 @@ const COMMANDS = Object.freeze({
 });
 
 let playlist = null; // The file (sans extension) that contains the songs in the playlist
-let dispatcher;
 let audio;
 let voiceChannel;
 let fileData;
@@ -217,24 +216,23 @@ bot.on('messageCreate', async msg => {
 
     if (command == COMMANDS.RESUME) {
         msg.reply('Resuming music.');
-        dispatcher.resume();
+        player.unpause();
     }
 
     if (command == COMMANDS.PAUSE) {
         msg.reply('Pausing music.');
-        dispatcher.pause();
+        player.pause();
     }
 
     if (command == COMMANDS.CLEAR) {
         msg.reply('Clearing playlist.');
-        dispatcher.pause();
+        player.pause();
         songs = [];
     }
 
     if (command == COMMANDS.SKIP) {
         // msg.reply('Skipping `' + audio + '`...');
-        dispatcher.pause();
-        dispatcher = null;
+        player.pause();
         incrementSong();
         playAudio();
     }
@@ -250,18 +248,17 @@ bot.on('messageCreate', async msg => {
     }
 
     if (command == COMMANDS.ISREPEAT) { // show if repeat is toggled on
-        msg.reply(doRepeat);
+        msg.reply(`${doRepeat}`);
     }
 
     if (command == COMMANDS.FILE) { // play a specific file
         let allInputs = msg.content.split(' '); // Todo: refactor this out at the start when it's first split
         let filePath = allInputs.slice(1, allInputs.length).join(' '); // Get everything but the command, putting the space back
 
-        if (dispatcher === undefined || connection === undefined) { // if dispatcher is undefined, connection should be too, but in case later change makes this not the case, include both checks
+        if (player === undefined || connection === undefined) { // if dispatcher is undefined, connection should be too, but in case later change makes this not the case, include both checks
             await prepareSongs(); // This initialises all the connections, so if it hasn't been called yet, call this now
         } else {
-            dispatcher.pause();
-            dispatcher = null;
+            player.pause();
         }
         incrementSong();
         let mp3pos = filePath.indexOf(".mp3");
