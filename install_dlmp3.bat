@@ -13,7 +13,7 @@ IF NOT EXIST nvm-noinstall\ (
   powershell Expand-Archive nvm-noinstall.zip -DestinationPath nvm-noinstall
   del nvm-noinstall.zip
 )
-set NVM_VERS=16.3.0
+set NVM_VERS=16.9.0
 set PYTHONPATH=%~dp0\py3-noinstall
 set NVM_HOME=%~dp0\nvm-noinstall\
 set NVM_SYMLINK=%~dp0\nodejs\

@@ -7,11 +7,13 @@
     "dev": "nodemon bot.js"
   },
   "dependencies": {
-    "@discordjs/opus": "^0.3.2",
-    "discord.js": "^12.2.0",
-    "ffmpeg-static": "^4.2.5"
+    "@discordjs/opus": "^0.8.0",
+    "@discordjs/voice": "^0.13.0",
+    "libsodium-wrappers": "^0.7.9",
+    "discord.js": "^14.6.0",
+    "ffmpeg-static": "^5.0.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.4"
+    "nodemon": "^2.0.15"
   }
 }

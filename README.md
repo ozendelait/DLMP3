@@ -8,7 +8,7 @@ Windows 10 Setup:
 * Add a new application by clicking "New Application" at https://discord.com/developers/applications (login to your discord account if not done yet)
 * For the selected new application click "Bot" on the left side menu and the "Add Bot" button; Unset the "Public Bot" option
 * Click the "Copy" Button next to the Token on the Bot overview page and paste the value into the config.json "token" field
-* Select "OAuth2" on the left side, check the check box "bot" and click the "Copy" button; open this url in a browser
+* Select "OAuth2" on the left side, enter https://discordapp.com/oauth2/authorize?&client_id=YOUR_CLIENT_ID&scope=bot in the Redirects text prompt; click "Save Changes"; open the url in a browser
 * From the pull-down menu select the target Discord server; select "Authorize" and solve the CAPTCHA (a notification on Discord should indicate that the bot has access to the server)
 * Activate "Developer Mode" in Discord (User Settings/Advanced/Developer Mode)
 * At the target Discord server, right-click on your name (right-side menu) and click on "Copy ID"; paste value into config.json "botOwner" field

@@ -19,10 +19,11 @@
  * 
  ***************************************************************************/
 const { SSL_OP_TLS_BLOCK_PADDING_BUG } = require('constants');
-const Discord = require('discord.js');
+const { Client, Discord, GatewayIntentBits, InteractionType, EmbedBuilder, ActivityType } = require('discord.js');
+const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, NoSubscriberBehavior, AudioPlayerStatus } = require('@discordjs/voice');
 const { repeat } = require('ffmpeg-static');
 const fs = require('fs');
-const bot = new Discord.Client();
+const bot = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates] });
 const config = require('./config.json');
 
 // Create an enum so we don't mistype anything
@@ -57,6 +58,13 @@ let currentTrack = 0; // The index of the song list that is playing in the playl
 let doRepeat = false; // If this is true, the song will be repeated (not incremented)
 bot.login(config.token);
 
+const player = createAudioPlayer({
+	behaviors: {
+		noSubscriber: NoSubscriberBehavior.Play,
+		maxMissedFrames: Math.round(config.maxTransmissionGap / 20),
+	},
+});
+
 function incrementSong() {
     // Increments the track number and returns the new current track for convenience
     // Unless repeat is on
@@ -77,27 +85,26 @@ async function prepareSongs() {
     if (!voiceChannel) return console.error('The voice channel does not exist!\n(Have you looked at your configuration?)');
     let files = null; // Stores the array of files to read from
 
-    files = await voiceChannel.join().then(_connection => {
-        connection = _connection;
-        let readFailed = false; // Set to true if the read of the playlist fails
-        const playlistPath = "./playlists/" + playlist + ".json"
+    connection = joinVoiceChannel({
+    channelId: voiceChannel.id,
+    guildId: voiceChannel.guild.id,
+    adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+    }).subscribe(player);
 
-        if (playlist !== null && fs.existsSync(playlistPath)) {
-            let rawInput = fs.readFileSync(playlistPath, "utf8");
-            files = JSON.parse(rawInput);
-        }
-        if (readFailed || playlist == null || !fs.existsSync(playlistPath)) {
-            files = fs.readdirSync('./music');
-        }
-        console.log(files);
-        files.sort((a, b) => Math.random() - 0.5); // 50-50 chance to be higher or lower (so it's a kind of shuffle, see https://dev.to/codebubb/how-to-shuffle-an-array-in-javascript-2ikj)
+	let readFailed = false; // Set to true if the read of the playlist fails
+	const playlistPath = "./playlists/" + playlist + ".json"
 
-        files.filter(element => element.endsWith(".mp3")); // Remove everything that isn't an mp3
-        return files;
+	if (playlist !== null && fs.existsSync(playlistPath)) {
+		let rawInput = fs.readFileSync(playlistPath, "utf8");
+		files = JSON.parse(rawInput);
+	}
+	if (readFailed || playlist == null || !fs.existsSync(playlistPath)) {
+		files = fs.readdirSync('./music');
+	}
+	console.log(files);
+	files.sort((a, b) => Math.random() - 0.5); // 50-50 chance to be higher or lower (so it's a kind of shuffle, see https://dev.to/codebubb/how-to-shuffle-an-array-in-javascript-2ikj)
 
-    }).catch(e => {
-        console.error(e);
-    });
+	files.filter(element => element.endsWith(".mp3")); // Remove everything that isn't an mp3
 
     return files; // Return the files to play
 }
@@ -116,34 +123,26 @@ function playAudio() {
         audio = " no song.";
         return;
     }
-    dispatcher = connection.play(fileName);
+    resource_fn = createAudioResource(fileName)
+    player.play(resource_fn);
 
-    dispatcher.on('start', () => {
-        console.log('Now playing ' + fileName);
-        fileData = "Now Playing: " + fileName;
-        fs.writeFile("now-playing.txt", fileData, (err) => {
+    console.log('Now playing ' + fileName);
+    fileData = "Now Playing: " + fileName;
+    fs.writeFile("now-playing.txt", fileData, (err) => {
             if (err)
                 console.log(err);
-        });
-        audio = fileName;
-        //const statusEmbed = new Discord.MessageEmbed()
-        //     .addField('Now Playing', `${fileName}`)
-        //     .setColor('#0066ff')
+     });
+     audio = fileName;
 
-        let statusChannel = bot.channels.cache.get(config.statusChannel);
-        if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
-        // statusChannel.send(statusEmbed);
-    });
-
-    dispatcher.on('error', console.error);
-
-    dispatcher.on('finish', () => {
-        console.log('Music has finished playing.');
-        playAudio(songs, incrementSong()); // Cycle through the shuffled list over and over
-    });
+     player.on(AudioPlayerStatus.Idle, () => {
+      setTimeout(() => {
+      console.log('Music has finished playing.');
+      playAudio(songs, incrementSong()); // Cycle through the shuffled list over and over
+     }, 1000);
+  })
 }
 
-bot.on('ready', () => {
+bot.once('ready', async() => {
     console.log('Bot is ready!');
     console.log(`Logged in as ${bot.user.tag}!`);
     console.log(`Prefix: ${config.prefix}`);
@@ -152,24 +151,25 @@ bot.on('ready', () => {
     console.log(`Status Channel: ${config.statusChannel}\n`);
 
     bot.user.setPresence({
-        activity: {
-            name: `Music | ${config.prefix}help`
-        },
+        activities: [{
+            name: `Music | ${config.prefix}help`,
+            type: ActivityType.Playing
+        }],
         status: 'online',
-    }).then(presence => console.log(`Activity set to "${presence.activities[0].name}"`)).catch(console.error);
-
-    // const readyEmbed = new Discord.MessageEmbed()
+    })
+    console.log(`Activity set to "${bot.presence.activities[0]}"`);
+    // const readyEmbed = new EmbedBuilder()
     //     .setAuthor(`${bot.user.username}`, bot.user.avatarURL())
     //     .setDescription('Starting bot...')
     //     .setColor('#0066ff')
 
     let statusChannel = bot.channels.cache.get(config.statusChannel);
     if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
-    // statusChannel.send(readyEmbed);
+    //statusChannel.send("Music Bot Restarted...");
     console.log('Connected to the voice channel.');
 });
 
-bot.on('message', async msg => {
+bot.on('messageCreate', async msg => {
     if (msg.author.bot) return;
     if (!msg.guild) return;
     if (!msg.content.startsWith(config.prefix)) return;
@@ -179,12 +179,13 @@ bot.on('message', async msg => {
     // Public allowed commands
 
     if (command == COMMANDS.HELP) {
-        if (!msg.guild.member(bot.user).hasPermission('EMBED_LINKS')) return msg.reply('**ERROR: This bot doesn\'t have the permission to send embed links please enable them to use the full help.**');
-        const helpEmbed = new Discord.MessageEmbed()
-            .setAuthor(`${bot.user.username} Help`, bot.user.avatarURL())
-            .setDescription(`Currently playing \`${audio}\`.`)
-            .addField('Public Commands',
-                ` ${config.prefix}help\n
+        //const user_perm = msg.guild.members.cache.get(bot.user);
+        //if (!user_perm.hasPermission('EMBED_LINKS')) return msg.reply('**ERROR: This bot doesn\'t have the permission to send embed links please enable them to use the full help.**');
+        const helpEmbed = new EmbedBuilder();
+        helpEmbed.setAuthor({name: `${bot.user.username} Help`, iconURL: bot.user.avatarURL()});
+        helpEmbed.setDescription(`Currently playing \`${audio}\`.`);
+        helpEmbed.addFields({name: 'Public Commands',
+                value: ` ${config.prefix}help\n
                   ${config.prefix}list\n
                   ${config.prefix}playing\n
                   ${config.prefix}about\n
@@ -197,12 +198,13 @@ bot.on('message', async msg => {
                   ${config.prefix}file <song name without extension>\n
                   ${config.prefix}shuffle\n
                   ${config.prefix}playlist <playlist name without extension>\n
-                  ${config.prefix}export <file name without extension>\n`, true)
-            .addField('Bot Owner Only', `${config.prefix}join\n${config.prefix}leave\n${config.prefix}stop\n`, true)
-            .setFooter('© Copyright 2020 Andrew Lee. Licensed with GPL-3.0.')
-            .setColor('#0066ff')
+                  ${config.prefix}export <file name without extension>\n`, 
+                  inline: true});
+        helpEmbed.addFields({name: 'Bot Owner Only', value:`${config.prefix}join\n${config.prefix}leave\n${config.prefix}stop\n`, inline:true});
+        helpEmbed.setFooter({text:'© Copyright 2020 Andrew Lee/ 2022 Oliver Zendel. Licensed with GPL-3.0.'});
+        helpEmbed.setColor('#0066ff');
 
-        msg.channel.send(helpEmbed);
+        msg.channel.send({ embeds: [helpEmbed] });
     }
 
     if (command == COMMANDS.PLAYING) {
@@ -210,7 +212,7 @@ bot.on('message', async msg => {
     }
 
     if (command == COMMANDS.ABOUT) {
-        msg.channel.send('The bot code was forked from Andrew Lee (Alee#4277). Written in Discord.JS and licensed with GPL-3.0.');
+        msg.channel.send('The bot code was forked from Andrew Lee (Alee#4277) by Oliver Zendel. Written in Discord.JS and licensed with GPL-3.0.');
     }
 
     if (command == COMMANDS.RESUME) {
@@ -336,8 +338,8 @@ bot.on('message', async msg => {
             if (err)
                 console.log(err);
         });
-        const statusEmbed = new Discord.MessageEmbed()
-            .setAuthor(`${bot.user.username}`, bot.user.avatarURL())
+        const statusEmbed = new EmbedBuilder()
+            .setAuthor({name: `${bot.user.username}`, iconURL: bot.user.avatarURL()})
             .setDescription(`That\'s all folks! Powering down ${bot.user.username}...`)
             .setColor('#0066ff')
         let statusChannel = bot.channels.cache.get(config.statusChannel);
