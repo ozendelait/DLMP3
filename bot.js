@@ -142,6 +142,9 @@ function playAudio() {
 }
 
 bot.once('ready', async() => {
+    if(fs.existsSync('./avatar.jpg')) {
+        bot.user.setAvatar(fs.readFileSync('./avatar.jpg'));
+    }
     console.log('Bot is ready!');
     console.log(`Logged in as ${bot.user.tag}!`);
     console.log(`Prefix: ${config.prefix}`);
