@@ -45,6 +45,7 @@ const COMMANDS = Object.freeze({
     EXPORT: "export",
     LIST: "list",
     CLEAR: "clear",
+    QUEUE: "queue"
 });
 
 let playlist = null; // The file (sans extension) that contains the songs in the playlist
@@ -232,7 +233,15 @@ bot.on('messageCreate', async msg => {
         player.pause();
         songs = [];
     }
-
+    
+    if (command == COMMANDS.QUEUE) {
+        let allInputs = msg.content.split(' '); // Todo: refactor this out at the start when it's first split
+        let filePath = allInputs.slice(1, allInputs.length).join(' '); // Get everything but the command, putting the space back
+        let mp3pos = filePath.indexOf(".mp3");
+        if (mp3pos < 0) {filePath = filePath + ".mp3";}
+        songs.splice(currentTrack, 0, filePath);
+    }
+    
     if (command == COMMANDS.SKIP) {
         // msg.reply('Skipping `' + audio + '`...');
         player.pause();
