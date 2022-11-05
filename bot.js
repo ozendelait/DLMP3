@@ -26,6 +26,8 @@ const fs = require('fs');
 const bot = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates] });
 const config = require('./config.json');
 
+require('events').EventEmitter.defaultMaxListeners = 24;
+
 // Create an enum so we don't mistype anything
 const COMMANDS = Object.freeze({
     HELP: "help",
@@ -56,14 +58,10 @@ let connection; // The connection (not a fan of how it's a global variable, but 
 let songs = []; // The songs that wil be played
 let currentTrack = 0; // The index of the song list that is playing in the playlist / shuffle, etc. right now
 let doRepeat = false; // If this is true, the song will be repeated (not incremented)
-bot.login(config.token);
+let resource_fn = null;
+let player = null;
 
-const player = createAudioPlayer({
-	behaviors: {
-		noSubscriber: NoSubscriberBehavior.Play,
-		maxMissedFrames: Math.round(config.maxTransmissionGap / 20),
-	},
-});
+bot.login(config.token);
 
 function incrementSong() {
     // Increments the track number and returns the new current track for convenience
@@ -84,6 +82,16 @@ async function prepareSongs() {
     voiceChannel = bot.channels.cache.get(config.voiceChannel);
     if (!voiceChannel) return console.error('The voice channel does not exist!\n(Have you looked at your configuration?)');
     let files = null; // Stores the array of files to read from
+    if(player) {
+        player.stop();
+        player = null;
+    }
+    player = createAudioPlayer({
+            behaviors: {
+            noSubscriber: NoSubscriberBehavior.Play,
+            maxMissedFrames: Math.round(config.maxTransmissionGap / 20),
+        },
+    });
 
     connection = joinVoiceChannel({
     channelId: voiceChannel.id,
@@ -137,6 +145,7 @@ function playAudio() {
      player.on(AudioPlayerStatus.Idle, () => {
       setTimeout(() => {
       console.log('Music has finished playing.');
+      player.stop();
       playAudio(songs, incrementSong()); // Cycle through the shuffled list over and over
      }, 1000);
   })
