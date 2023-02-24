@@ -25,6 +25,7 @@ const { repeat } = require('ffmpeg-static');
 const fs = require('fs');
 const bot = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates] });
 const config = require('./config.json');
+//const { setTimeout: setTimeoutPromise } = require('node:timers/promises');
 
 require('events').EventEmitter.defaultMaxListeners = 24;
 
@@ -60,6 +61,7 @@ let currentTrack = 0; // The index of the song list that is playing in the playl
 let doRepeat = false; // If this is true, the song will be repeated (not incremented)
 let resource_fn = null;
 let player = null;
+let last_play = 0;
 
 bot.login(config.token);
 
@@ -131,6 +133,13 @@ function playAudio() {
         audio = " no song.";
         return;
     }
+    let curr_play = Date.now()
+    if(curr_play-last_play < 500) {
+        console.log("Detected invalid skipping. Restarting... ("+(curr_play-last_play).toString()+" ms)");
+        fs.writeFileSync("_init_file.txt", audio);
+        process.exit(1);
+    }
+    last_play = curr_play
     resource_fn = createAudioResource(fileName)
     player.play(resource_fn);
 
@@ -179,6 +188,15 @@ bot.once('ready', async() => {
     if (!statusChannel) return console.error('The status channel does not exist! Skipping.');
     //statusChannel.send("Music Bot Restarted...");
     console.log('Connected to the voice channel.');
+    if(fs.existsSync('_init_file.txt')) {
+        let init_restart = fs.readFileSync('_init_file.txt', 'utf8');
+        if( init_restart.length ) {
+            console.log(`Playing ${init_restart} after bot restarted`);
+            await prepareSongs();
+            songs.splice(currentTrack, 0, init_restart);
+            playAudio();
+        }
+    }
 });
 
 bot.on('messageCreate', async msg => {
