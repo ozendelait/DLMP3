@@ -150,10 +150,9 @@ function playAudio() {
                 console.log(err);
      });
      audio = fileName;
-
-     player.on(AudioPlayerStatus.Idle, () => {
+     player.once(AudioPlayerStatus.Idle, () => {
       setTimeout(() => {
-      console.log('Music has finished playing.');
+      console.log('Music has finished playing after '+((Date.now()-last_play)/1000).toString()+ ' sec.');
       player.stop();
       playAudio(songs, incrementSong()); // Cycle through the shuffled list over and over
      }, 1000);
